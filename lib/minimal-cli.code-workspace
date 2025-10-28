@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../desktop"
+		},
+		{
+			"path": "../../replayable-cli"
+		},
+		{
+			"path": "../../api"
+		},
+		{
+			"path": "../../cli"
+		},
+		{
+			"path": "../../webcontainer-api-starter"
+		}
+	],
+  "settings": {}
+}
