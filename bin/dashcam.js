@@ -150,11 +150,12 @@ program
                 title: options.title || 'Dashcam Recording',
                 description: options.description || 'Recorded with Dashcam CLI',
                 project: options.project,
-                gifPath: stopResult.gifPath,
-                snapshotPath: stopResult.snapshotPath,
+                duration: stopResult.duration,
+                clientStartDate: stopResult.clientStartDate,
                 apps: stopResult.apps,
                 logs: stopResult.logs,
-                clientStartDate: stopResult.clientStartDate
+                gifPath: stopResult.gifPath,
+                snapshotPath: stopResult.snapshotPath
               });
               
               console.log('Upload completed successfully!');
@@ -279,6 +280,17 @@ program
 
         console.log('Recording stopped successfully');
         console.log('Output saved to:', result.outputPath);
+        
+        // Check if files still exist - if not, background process already uploaded
+        const filesExist = fs.existsSync(result.outputPath) && 
+                          (!result.gifPath || fs.existsSync(result.gifPath)) && 
+                          (!result.snapshotPath || fs.existsSync(result.snapshotPath));
+        
+        if (!filesExist) {
+          console.log('✅ Recording was already uploaded by background process');
+          console.log('✅ Recording stopped and uploaded');
+          process.exit(0);
+        }
         
         // Always attempt to upload - let upload function find project if needed
         console.log('Uploading recording...');
