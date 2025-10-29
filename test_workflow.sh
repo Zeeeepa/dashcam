@@ -48,21 +48,6 @@ echo "5. Starting dashcam recording..."
 ./bin/dashcam.js record --verbose --title "Test Workflow Recording" --description "Testing CLI workflow with web and file tracking"
 echo "✅ Recording started"
 
-# 6. Wait 10 seconds
-echo ""
-echo "6. Waiting 10 seconds..."
-for i in {10..1}; do
-  echo "⏰ $i seconds remaining..."
-  sleep 1
-done
-echo "✅ Wait complete"
-
-# 7. Stop dashcam recording
-echo ""
-echo "7. Stopping dashcam recording and showing progress..."
-./bin/dashcam.js stop
-echo "✅ Recording stopped"
-
 # Cleanup: Stop the background logger
 echo ""
 echo "🧹 Cleaning up..."
