@@ -53,8 +53,8 @@ echo "✅ Recording started in background"
 
 # 6. Let recording run for a few seconds
 echo ""
-echo "6. Letting recording run for 10 seconds..."
-sleep 30
+echo "6. Letting recording run for 2 minutes..."
+sleep 20
 echo "✅ Recording completed"
 
 # 7. Stop recording and upload (this will kill the background recording process)
