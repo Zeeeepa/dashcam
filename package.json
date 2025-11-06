@@ -13,8 +13,8 @@
     "build": "pkg dist/bundle.cjs --out-path dist --compress GZip --public",
     "build:macos": "pkg dist/bundle.cjs --targets node18-macos-x64,node18-macos-arm64 --out-path dist --compress GZip --public",
     "build:linux": "pkg dist/bundle.cjs --targets node18-linux-x64,node18-linux-arm64 --out-path dist --compress GZip --public",
-    "build:windows": "pkg dist/bundle.cjs --targets node18-win-x64 --out-path dist --compress GZip --public",
-    "build:all": "pkg dist/bundle.cjs --targets node18-macos-x64,node18-macos-arm64,node18-linux-x64,node18-linux-arm64,node18-win-x64 --out-path dist --compress GZip --public"
+    "build:windows": "pkg dist/bundle.cjs --targets node18-win-x64,node18-win-arm64 --out-path dist --compress GZip --public",
+    "build:all": "pkg dist/bundle.cjs --targets node18-macos-x64,node18-macos-arm64,node18-linux-x64,node18-linux-arm64,node18-win-x64,node18-win-arm64 --out-path dist --compress GZip --public"
   },
   "pkg": {
     "scripts": "dist/bundle.cjs",
@@ -23,7 +23,8 @@
       "node18-macos-arm64",
       "node18-linux-x64",
       "node18-linux-arm64",
-      "node18-win-x64"
+      "node18-win-x64",
+      "node18-win-arm64"
     ],
     "outputPath": "dist",
     "assets": [

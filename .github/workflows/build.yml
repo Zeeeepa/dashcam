@@ -99,7 +99,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dashcam-windows
-          path: dist/bundle-x64.exe
+          path: |
+            dist/bundle-x64.exe
+            dist/bundle-arm64.exe
           if-no-files-found: warn
 
   release:
@@ -126,6 +128,7 @@ jobs:
             dashcam-linux/bundle-arm64
             dashcam-linux/bundle-x64
             dashcam-windows/bundle-x64.exe
+            dashcam-windows/bundle-arm64.exe
           draft: false
           prerelease: false
           fail_on_unmatched_files: false
