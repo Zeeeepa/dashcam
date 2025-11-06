@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node bin/dashcam.js",
     "prebuild": "npm run bundle",
-    "bundle": "esbuild bin/dashcam.js --bundle --platform=node --target=node20 --format=cjs --outfile=dist/bundle.cjs --external:ffmpeg-static --external:ffprobe-static --external:@mapbox/node-pre-gyp --external:file-icon --banner:js=\"const importMetaUrl = typeof document === 'undefined' ? require('url').pathToFileURL(__filename).href : document.currentScript && document.currentScript.src || new URL('index.js', document.baseURI).href;\" --define:import.meta.url='importMetaUrl'",
+    "bundle": "esbuild bin/dashcam.js --bundle --platform=node --target=node20 --format=cjs --outfile=dist/bundle.cjs --external:@mapbox/node-pre-gyp --external:file-icon --external:get-windows --banner:js=\"const importMetaUrl = typeof document === 'undefined' ? require('url').pathToFileURL(__filename).href : document.currentScript && document.currentScript.src || new URL('index.js', document.baseURI).href;\" --define:import.meta.url='importMetaUrl'",
     "build": "pkg dist/bundle.cjs --out-path dist --compress GZip --public",
     "build:macos": "pkg dist/bundle.cjs --targets node20-macos-x64 --output dist/dashcam-macos-x64 --compress GZip --public && pkg dist/bundle.cjs --targets node20-macos-arm64 --output dist/dashcam-macos-arm64 --compress GZip --public",
     "build:linux": "pkg dist/bundle.cjs --targets node20-linux-x64 --output dist/dashcam-linux-x64 --compress GZip --public && pkg dist/bundle.cjs --targets node20-linux-arm64 --output dist/dashcam-linux-arm64 --compress GZip --public",
@@ -21,16 +21,15 @@
     "targets": [
       "node20-macos-x64",
       "node20-macos-arm64",
-        "node20-linux-x64",
+      "node20-linux-x64",
       "node20-linux-arm64",
       "node20-win-x64",
       "node20-win-arm64"
     ],
     "outputPath": "dist",
-    "assets": [
-      "node_modules/ffmpeg-static/**/*",
-      "node_modules/ffprobe-static/**/*",
-      "node_modules/**/*.node"
+    "ignore": [
+      "node_modules/get-windows/**",
+      "node_modules/file-icon/**"
     ]
   },
   "dependencies": {
@@ -40,8 +39,6 @@
     "auth0": "^4.0.0",
     "commander": "^11.0.0",
     "execa": "^9.6.0",
-    "ffmpeg-static": "^5.2.0",
-    "ffprobe-static": "^3.1.0",
     "file-icon": "^6.0.0",
     "get-windows": "^9.2.3",
     "got": "^11.8.6",
