@@ -3,3 +3,10 @@ tmp/recordings/
 
 # Build output
 dist/
+
+# Binary bundles (no longer used)
+sea-bundle.mjs
+*.exe
+dashcam-macos-*
+dashcam-linux-*
+dashcam-windows-*

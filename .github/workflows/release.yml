@@ -11,19 +11,27 @@ permissions:
   contents: write
 
 jobs:
-  bump-version:
+  release:
     runs-on: ubuntu-latest
     # Skip if commit message contains [skip ci] or [skip release]
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[skip release]') }}
-    outputs:
-      new_tag: ${{ steps.bump.outputs.new_tag }}
-      version: ${{ steps.bump.outputs.tag }}
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Bump version and create tag
         id: bump
@@ -35,77 +43,41 @@ jobs:
           INITIAL_VERSION: 1.0.0
           RELEASE_BRANCHES: main,master
 
-  build:
-    needs: bump-version
-    uses: ./.github/workflows/build.yml
-    with:
-      upload_artifacts: true
-
-  release:
-    needs: [bump-version, build]
-    runs-on: ubuntu-latest
-    if: needs.bump-version.outputs.new_tag != ''
-    
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-
-      - name: List downloaded artifacts
+      - name: Update package.json version
+        if: steps.bump.outputs.new_tag != ''
         run: |
-          echo "Downloaded artifacts:"
-          ls -R
+          VERSION="${{ steps.bump.outputs.tag }}"
+          npm version $VERSION --no-git-tag-version
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add package.json
+          git commit -m "chore: bump version to $VERSION [skip ci]" || true
 
-      - name: Prepare release files
-        run: |
-          mkdir -p release
-          # macOS binaries
-          if [ -f dashcam-macos/bundle-arm64 ]; then
-            cp dashcam-macos/bundle-arm64 release/dashcam-macos-arm64
-            chmod +x release/dashcam-macos-arm64
-          fi
-          if [ -f dashcam-macos/bundle-x64 ]; then
-            cp dashcam-macos/bundle-x64 release/dashcam-macos-x64
-            chmod +x release/dashcam-macos-x64
-          fi
-          # Linux binaries
-          if [ -f dashcam-linux/bundle-arm64 ]; then
-            cp dashcam-linux/bundle-arm64 release/dashcam-linux-arm64
-            chmod +x release/dashcam-linux-arm64
-          fi
-          if [ -f dashcam-linux/bundle-x64 ]; then
-            cp dashcam-linux/bundle-x64 release/dashcam-linux-x64
-            chmod +x release/dashcam-linux-x64
-          fi
-          # Windows binaries
-          if [ -f dashcam-windows/bundle-x64.exe ]; then
-            cp dashcam-windows/bundle-x64.exe release/dashcam-windows-x64.exe
-          fi
-          if [ -f dashcam-windows/bundle-arm64.exe ]; then
-            cp dashcam-windows/bundle-arm64.exe release/dashcam-windows-arm64.exe
-          fi
-          ls -la release/
+      - name: Publish to npm
+        if: steps.bump.outputs.new_tag != ''
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Create Release
+      - name: Create GitHub Release
+        if: steps.bump.outputs.new_tag != ''
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ needs.bump-version.outputs.new_tag }}
-          name: Release ${{ needs.bump-version.outputs.new_tag }}
+          tag_name: ${{ steps.bump.outputs.new_tag }}
+          name: Release ${{ steps.bump.outputs.new_tag }}
           body: |
-            ## Dashcam CLI Release ${{ needs.bump-version.outputs.new_tag }}
+            ## Dashcam CLI Release ${{ steps.bump.outputs.new_tag }}
             
-            Automated release with binaries for macOS (x64, ARM64), Linux (x64, ARM64), and Windows (x64, ARM64).
+            ### Installation
+            ```bash
+            npm install -g dashcam
+            ```
             
-            ### Download Instructions
-            - **macOS Intel**: `dashcam-macos-x64`
-            - **macOS Apple Silicon**: `dashcam-macos-arm64`
-            - **Linux x64**: `dashcam-linux-x64`
-            - **Linux ARM64**: `dashcam-linux-arm64`
-            - **Windows x64**: `dashcam-windows-x64.exe`
-            - **Windows ARM64**: `dashcam-windows-arm64.exe`
-          files: release/*
+            ### Usage
+            ```bash
+            dashcam --help
+            ```
           draft: false
           prerelease: false
-          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,17 @@
+# Development files
+.github/
+.gitignore
+examples/
+tmp/
+dist/
+
+# Build configuration
+sea-bundle.mjs
+test_workflow.sh
+test-page.html
+
+# Documentation (included via files field in package.json)
+LOG_TRACKING_GUIDE.md
+
+# macOS
+.DS_Store
