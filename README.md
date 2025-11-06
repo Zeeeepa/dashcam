@@ -22,8 +22,8 @@ Capture video recordings of automated test runs with synchronized browser logs, 
 # Install in your CI environment
 npm install -g dashcam
 
-# Authenticate with your API key
-dashcam auth $DASHCAM_API_KEY
+# Authenticate with your API key (get it from app.testdriver.ai/team)
+dashcam auth $TD_API_KEY
 
 # Wrap your test command
 dashcam record --title "E2E Test Run" &
@@ -37,6 +37,8 @@ dashcam stop
 ```
 
 **That's it!** Your test run is recorded, uploaded, and ready to debug. 🎉
+
+> 💡 **Get your API key** from [app.testdriver.ai/team](https://app.testdriver.ai/team)
 
 ---
 
@@ -105,7 +107,7 @@ jobs:
         run: npm install -g dashcam
       
       - name: Authenticate Dashcam
-        run: dashcam auth ${{ secrets.DASHCAM_API_KEY }}
+        run: dashcam auth ${{ secrets.TD_API_KEY }}
       
       - name: Start recording
         run: |
@@ -130,7 +132,7 @@ e2e-tests:
   image: node:18
   before_script:
     - npm install -g dashcam
-    - dashcam auth $DASHCAM_API_KEY
+    - dashcam auth $TD_API_KEY
   script:
     - dashcam record --title "E2E Tests - $CI_COMMIT_SHORT_SHA" &
     - sleep 2
@@ -138,7 +140,7 @@ e2e-tests:
   after_script:
     - dashcam stop
   variables:
-    DASHCAM_API_KEY: $DASHCAM_API_KEY
+    TD_API_KEY: $TD_API_KEY
     DASHCAM_PROJECT_ID: $DASHCAM_PROJECT_ID
 ```
 
@@ -149,14 +151,14 @@ pipeline {
     agent any
     
     environment {
-        DASHCAM_API_KEY = credentials('dashcam-api-key')
+        TD_API_KEY = credentials('dashcam-api-key')
     }
     
     stages {
         stage('Setup') {
             steps {
                 sh 'npm install -g dashcam'
-                sh 'dashcam auth $DASHCAM_API_KEY'
+                sh 'dashcam auth $TD_API_KEY'
             }
         }
         
@@ -191,8 +193,8 @@ COPY . .
 RUN npm install
 
 # Authenticate (use build args or runtime env)
-ARG DASHCAM_API_KEY
-RUN dashcam auth $DASHCAM_API_KEY
+ARG TD_API_KEY
+RUN dashcam auth $TD_API_KEY
 
 # Run tests with recording
 CMD ["sh", "-c", "dashcam record --title 'Container Tests' & sleep 2 && npm test && dashcam stop"]
@@ -304,7 +306,7 @@ npm link
 set -e
 
 # Setup
-dashcam auth $DASHCAM_API_KEY
+dashcam auth $TD_API_KEY
 
 # Configure browser log tracking
 dashcam logs --add --name=playwright --type=web --pattern="*localhost:*"
@@ -416,8 +418,16 @@ dashcam stop
 ### `dashcam auth <apiKey>`
 Authenticate with your TestDriver API key.
 
+> 💡 **Get your API key** from [app.testdriver.ai/team](https://app.testdriver.ai/team)
+
 ```bash
 dashcam auth 4e93d8bf-3886-4d26-a144-116c4063522d
+```
+
+**In CI environments:**
+```bash
+# Use environment variable
+dashcam auth $TD_API_KEY
 ```
 
 ### `dashcam record [options]`
@@ -583,11 +593,11 @@ For CI/CD environments, use environment variables instead of hardcoding:
 
 ```bash
 # Set in CI environment
-export DASHCAM_API_KEY="your-api-key"
+export TD_API_KEY="your-api-key"
 export DASHCAM_PROJECT_ID="proj_abc123"
 
 # Use in scripts
-dashcam auth $DASHCAM_API_KEY
+dashcam auth $TD_API_KEY
 dashcam record --title "Tests" --project $DASHCAM_PROJECT_ID &
 ```
 
