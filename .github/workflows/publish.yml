@@ -31,13 +31,13 @@ jobs:
 
       - name: Bump version
         run: |
-          npm version patch -m "chore: bump version to %s [skip ci]"
+          npm version prerelease --preid=beta -m "chore: bump version to %s [skip ci]"
 
       - name: Push changes
         run: |
           git push --follow-tags
 
       - name: Publish to npm
-        run: npm publish --access public
+        run: npm publish --access public --tag beta
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
