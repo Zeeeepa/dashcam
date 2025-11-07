@@ -181,8 +181,8 @@ program
               log('📹 Watch your recording:', uploadResult.shareLink);
             }
             
-            // Clean up process files
-            processManager.cleanup();
+            // Clean up process files, but preserve upload result for stop command
+            processManager.cleanup({ preserveResult: true });
           } catch (error) {
             logError('Error during shutdown:', error.message);
             logger.error('Error during shutdown:', error);
@@ -299,7 +299,6 @@ program
         }
 
         console.log('Recording stopped successfully');
-        console.log('Output saved to:', result.outputPath);
         
         // Check if files still exist - if not, background process already uploaded
         const filesExist = fs.existsSync(result.outputPath) && 
@@ -307,15 +306,21 @@ program
                           (!result.snapshotPath || fs.existsSync(result.snapshotPath));
         
         if (!filesExist) {
-          console.log('✅ Recording was already uploaded by background process');
+          // Files were deleted, meaning background process uploaded
+          // Wait for the upload result to be written
+          logger.debug('Waiting for upload result from background process');
+          await new Promise(resolve => setTimeout(resolve, 2000));
           
           // Try to read the upload result from the background process
           const uploadResult = processManager.readUploadResult();
+          logger.debug('Upload result read attempt', { found: !!uploadResult, shareLink: uploadResult?.shareLink });
+          
           if (uploadResult && uploadResult.shareLink) {
-            console.log('✅ Recording stopped and uploaded');
             console.log('📹 Watch your recording:', uploadResult.shareLink);
+            // Clean up the result file now that we've read it
+            processManager.cleanup();
           } else {
-            console.log('✅ Recording stopped and uploaded');
+            console.log('✅ Recording uploaded (share link not available)');
             logger.warn('Upload result not available from background process');
           }
           
@@ -337,7 +342,6 @@ program
             snapshotPath: result.snapshotPath
           });
           
-          console.log('✅ Upload complete!');
           console.log('📹 Watch your recording:', uploadResult.shareLink);
         } catch (uploadError) {
           console.error('Upload failed:', uploadError.message);
