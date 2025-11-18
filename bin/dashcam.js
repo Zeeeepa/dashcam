@@ -4,6 +4,7 @@ import { auth } from '../lib/auth.js';
 import { upload } from '../lib/uploader.js';
 import { logger, setVerbose } from '../lib/logger.js';
 import { APP } from '../lib/config.js';
+import { createPattern } from '../lib/tracking.js';
 import { processManager } from '../lib/processManager.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -238,6 +239,40 @@ program
   .action(recordingAction);
 
 program
+  .command('pipe')
+  .description('Pipe command output to dashcam to be included in recorded video')
+  .action(async () => {
+    try {
+      // Check if recording is active
+      if (!processManager.isRecordingActive()) {
+        console.error('No active recording. Start a recording first with "dashcam record" or "dashcam start"');
+        process.exit(1);
+      }
+
+      // Read from stdin
+      const chunks = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk);
+        // Also output to stdout so pipe continues to work
+        process.stdout.write(chunk);
+      }
+      const content = Buffer.concat(chunks).toString('utf-8');
+
+      // Import the log tracker to add the piped content
+      const { logsTrackerManager } = await import('../lib/logs/index.js');
+      
+      // Add piped content as a log entry
+      logsTrackerManager.addPipedLog(content);
+      
+      process.exit(0);
+    } catch (error) {
+      logger.error('Failed to pipe content:', error);
+      console.error('Failed to pipe content:', error.message);
+      process.exit(1);
+    }
+  });
+
+program
   .command('status')
   .description('Show current recording status')
   .action(() => {
@@ -270,6 +305,88 @@ program
       audio: false, 
       silent: false 
     }, null);
+  });
+
+program
+  .command('track')
+  .description('Add a logs config to Dashcam')
+  .option('--name <name>', 'Name for the tracking configuration (required)')
+  .option('--type <type>', 'Type of tracker: "application" or "web" (required)')
+  .option('--pattern <pattern>', 'Pattern to track (can be used multiple times)', (value, previous) => {
+    return previous ? previous.concat([value]) : [value];
+  })
+  .option('--web <pattern>', 'Web URL pattern to track (can use wildcards like *) - deprecated, use --type=web --pattern instead')
+  .option('--app <pattern>', 'Application file pattern to track (can use wildcards like *) - deprecated, use --type=application --pattern instead')
+  .action(async (options) => {
+    try {
+      // Support both old and new syntax
+      // New syntax: --name=social --type=web --pattern="*facebook.com*" --pattern="*twitter.com*"
+      // Old syntax: --web <pattern> --app <pattern>
+      
+      if (options.type && options.pattern) {
+        // New syntax validation
+        if (!options.name) {
+          console.error('Error: --name is required when using --type and --pattern');
+          console.log('Example: dashcam track --name=social --type=web --pattern="*facebook.com*" --pattern="*twitter.com*"');
+          process.exit(1);
+        }
+        
+        if (options.type !== 'web' && options.type !== 'application') {
+          console.error('Error: --type must be either "web" or "application"');
+          process.exit(1);
+        }
+        
+        const config = {
+          name: options.name,
+          type: options.type,
+          patterns: options.pattern,
+          enabled: true
+        };
+        
+        await createPattern(config);
+        console.log(`${options.type === 'web' ? 'Web' : 'Application'} tracking pattern added successfully:`, options.name);
+        console.log('Patterns:', options.pattern.join(', '));
+        
+      } else if (options.web || options.app) {
+        // Old syntax for backward compatibility
+        if (options.web) {
+          const config = {
+            name: options.name || 'Web Pattern',
+            type: 'web',
+            patterns: [options.web],
+            enabled: true
+          };
+          
+          await createPattern(config);
+          console.log('Web tracking pattern added successfully:', options.web);
+        }
+
+        if (options.app) {
+          const config = {
+            name: options.name || 'App Pattern',
+            type: 'application',
+            patterns: [options.app],
+            enabled: true
+          };
+          
+          await createPattern(config);
+          console.log('Application tracking pattern added successfully:', options.app);
+        }
+      } else {
+        console.error('Error: Must provide either:');
+        console.log('  --name --type --pattern (new syntax)');
+        console.log('  --web or --app (old syntax)');
+        console.log('\nExamples:');
+        console.log('  dashcam track --name=social --type=web --pattern="*facebook.com*" --pattern="*twitter.com*"');
+        console.log('  dashcam track --web "*facebook.com*"');
+        process.exit(1);
+      }
+      
+      process.exit(0);
+    } catch (error) {
+      console.error('Failed to add tracking pattern:', error.message);
+      process.exit(1);
+    }
   });
 
 program
