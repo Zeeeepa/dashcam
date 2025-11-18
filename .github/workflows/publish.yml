@@ -1,72 +1,39 @@
-name: Publish to npm
+name: Publish Beta to npm
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  publish:
+  publish-beta:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          node-version: "18"
+          registry-url: "https://registry.npmjs.org/"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Commit dependency updates
+      - name: Bump version (prerelease beta)
         run: |
-          # Commit any changes from npm ci (like package-lock.json updates)
-          if [[ -n $(git status -s) ]]; then
-            git add -A
-            git commit -m "chore: update dependencies [skip ci]"
-          fi
+          npm version prerelease --preid=beta -m "chore: bump beta version to %s"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Bump version
-        id: bump
-        run: |
-          # Get current version from npm (latest beta)
-          CURRENT_NPM_VERSION=$(npm view dashcam dist-tags.beta 2>/dev/null || echo "1.0.1-beta.0")
-          echo "Current npm beta version: $CURRENT_NPM_VERSION"
-          
-          # Update package.json to match npm version before bumping (no git changes)
-          npm version $CURRENT_NPM_VERSION --no-git-tag-version --allow-same-version
-          
-          # Commit the sync if package.json changed
-          if [[ -n $(git status -s) ]]; then
-            git add package.json
-            git commit -m "chore: sync version with npm registry [skip ci]"
-          fi
-          
-          # Now bump to next prerelease (this will create commit + tag)
-          NEW_VERSION=$(npm version prerelease --preid=beta -m "chore: bump version to %s [skip ci]")
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "New version: $NEW_VERSION"
-
-      - name: Publish to npm
-        run: npm publish --access public --tag beta
+      - name: Publish to npm under beta tag
+        run: npm publish --tag beta
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Push changes
+      - name: Push version bump commit + tag
         run: |
           git push --follow-tags
-        # Only push if publish succeeded
