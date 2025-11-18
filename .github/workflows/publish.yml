@@ -35,8 +35,8 @@ jobs:
       - name: Commit dependency updates
         run: |
           # Commit any changes from npm ci (like package-lock.json updates)
-          git add -A
-          if ! git diff-index --quiet HEAD; then
+          if [[ -n $(git status -s) ]]; then
+            git add -A
             git commit -m "chore: update dependencies [skip ci]"
           fi
 
@@ -51,8 +51,8 @@ jobs:
           npm version $CURRENT_NPM_VERSION --no-git-tag-version --allow-same-version
           
           # Commit the sync if package.json changed
-          git add package.json
-          if ! git diff-index --quiet HEAD; then
+          if [[ -n $(git status -s) ]]; then
+            git add package.json
             git commit -m "chore: sync version with npm registry [skip ci]"
           fi
           
