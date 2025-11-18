@@ -46,7 +46,7 @@ RECORDING_START=$(date +%s)
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "🔴 EVENT 1: Recording START at $(date '+%H:%M:%S')"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "[EVENT 1] Recording started at $(date '+%H:%M:%S') - TIMESTAMP: $RECORDING_START" >> "$TEMP_FILE"
+echo "[EVENT 1] 🔴 Recording started with emoji at $(date '+%H:%M:%S') - TIMESTAMP: $RECORDING_START" >> "$TEMP_FILE"
 
 # Verify recording is actually running
 if ps -p $RECORD_PID > /dev/null; then
@@ -71,25 +71,25 @@ sleep 3
 # Event 2 - after 3 seconds
 echo ""
 echo "🟡 EVENT 2: 3 seconds mark at $(date '+%H:%M:%S')"
-echo "[EVENT 2] 3 seconds elapsed at $(date '+%H:%M:%S')" >> "$TEMP_FILE"
+echo "[EVENT 2] 🟡 3 seconds elapsed with emoji at $(date '+%H:%M:%S')" >> "$TEMP_FILE"
 sleep 3
 
 # Event 3 - after 6 seconds
 echo ""
 echo "🟢 EVENT 3: 6 seconds mark at $(date '+%H:%M:%S')"
-echo "[EVENT 3] 6 seconds elapsed at $(date '+%H:%M:%S')" >> "$TEMP_FILE"
+echo "[EVENT 3] 🟢 6 seconds elapsed with emoji at $(date '+%H:%M:%S')" >> "$TEMP_FILE"
 sleep 3
 
 # Event 4 - after 9 seconds
 echo ""
 echo "🔵 EVENT 4: 9 seconds mark at $(date '+%H:%M:%S')"
-echo "[EVENT 4] 9 seconds elapsed at $(date '+%H:%M:%S')" >> "$TEMP_FILE"
+echo "[EVENT 4] 🔵 9 seconds elapsed with emoji at $(date '+%H:%M:%S')" >> "$TEMP_FILE"
 sleep 3
 
 # Event 5 - after 12 seconds
 echo ""
 echo "🟣 EVENT 5: 12 seconds mark at $(date '+%H:%M:%S')"
-echo "[EVENT 5] 12 seconds elapsed at $(date '+%H:%M:%S')" >> "$TEMP_FILE"
+echo "[EVENT 5] 🟣 12 seconds elapsed with emoji at $(date '+%H:%M:%S')" >> "$TEMP_FILE"
 sleep 3
 
 # Event 6 - before ending
@@ -98,7 +98,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "⚫ EVENT 6: Recording END at $(date '+%H:%M:%S')"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 RECORDING_END=$(date +%s)
-echo "[EVENT 6] Recording ending at $(date '+%H:%M:%S') - TIMESTAMP: $RECORDING_END" >> "$TEMP_FILE"
+echo "[EVENT 6] ⚫ Recording ending with emoji at $(date '+%H:%M:%S') - TIMESTAMP: $RECORDING_END" >> "$TEMP_FILE"
 
 DURATION=$((RECORDING_END - RECORDING_START))
 echo ""
@@ -112,8 +112,13 @@ sleep 2
 # 6. Stop recording and upload (this will kill the background recording process)
 echo ""
 echo "6. Stopping recording and uploading..."
-./bin/dashcam.js stop
-echo "✅ Recording stopped and uploaded"
+# Check if recording is still active
+if ./bin/dashcam.js status | grep -q "Recording in progress"; then
+  ./bin/dashcam.js stop
+  echo "✅ Recording stopped and uploaded"
+else
+  echo "⚠️  Recording already completed (this is expected with background mode)"
+fi
 
 echo ""
 echo "🧹 Cleaning up..."
@@ -140,12 +145,12 @@ echo "3. Verify these events appear at the correct times:"
 echo ""
 echo "   Time   | Terminal Display          | Log Entry"
 echo "   -------|---------------------------|---------------------------"
-echo "   0:00   | 🔴 EVENT 1               | [EVENT 1] Recording started"
-echo "   0:03   | 🟡 EVENT 2               | [EVENT 2] 3 seconds elapsed"
-echo "   0:06   | 🟢 EVENT 3               | [EVENT 3] 6 seconds elapsed"
-echo "   0:09   | 🔵 EVENT 4               | [EVENT 4] 9 seconds elapsed"
-echo "   0:12   | 🟣 EVENT 5               | [EVENT 5] 12 seconds elapsed"
-echo "   0:15   | ⚫ EVENT 6               | [EVENT 6] Recording ending"
+echo "   0:00   | 🔴 EVENT 1               | [EVENT 1] 🔴 Recording started"
+echo "   0:03   | 🟡 EVENT 2               | [EVENT 2] 🟡 3 seconds elapsed"
+echo "   0:06   | 🟢 EVENT 3               | [EVENT 3] 🟢 6 seconds elapsed"
+echo "   0:09   | 🔵 EVENT 4               | [EVENT 4] 🔵 9 seconds elapsed"
+echo "   0:12   | 🟣 EVENT 5               | [EVENT 5] 🟣 12 seconds elapsed"
+echo "   0:15   | ⚫ EVENT 6               | [EVENT 6] ⚫ Recording ending"
 echo ""
 echo "4. The log timestamps should match the video timeline exactly"
 echo "5. Each colored event marker should appear in the video"

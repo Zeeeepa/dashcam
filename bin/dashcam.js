@@ -417,30 +417,29 @@ program
 
         console.log('Recording stopped successfully');
         
+        // Wait a moment for upload to complete (background process handles this)
+        logger.debug('Waiting for background upload to complete...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Try to read the upload result from the background process
+        const uploadResult = processManager.readUploadResult();
+        logger.debug('Upload result read attempt', { found: !!uploadResult, shareLink: uploadResult?.shareLink });
+        
+        if (uploadResult && uploadResult.shareLink) {
+          console.log('📹 Watch your recording:', uploadResult.shareLink);
+          // Clean up the result file now that we've read it
+          processManager.cleanup();
+          process.exit(0);
+        }
+        
         // Check if files still exist - if not, background process already uploaded
         const filesExist = fs.existsSync(result.outputPath) && 
                           (!result.gifPath || fs.existsSync(result.gifPath)) && 
                           (!result.snapshotPath || fs.existsSync(result.snapshotPath));
         
         if (!filesExist) {
-          // Files were deleted, meaning background process uploaded
-          // Wait for the upload result to be written
-          logger.debug('Waiting for upload result from background process');
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Try to read the upload result from the background process
-          const uploadResult = processManager.readUploadResult();
-          logger.debug('Upload result read attempt', { found: !!uploadResult, shareLink: uploadResult?.shareLink });
-          
-          if (uploadResult && uploadResult.shareLink) {
-            console.log('📹 Watch your recording:', uploadResult.shareLink);
-            // Clean up the result file now that we've read it
-            processManager.cleanup();
-          } else {
-            console.log('✅ Recording uploaded (share link not available)');
-            logger.warn('Upload result not available from background process');
-          }
-          
+          console.log('✅ Recording uploaded by background process');
+          logger.info('Files were cleaned up by background process');
           process.exit(0);
         }
         
