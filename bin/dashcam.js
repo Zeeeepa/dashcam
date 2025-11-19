@@ -417,12 +417,22 @@ program
 
         console.log('Recording stopped successfully');
         
-        // Wait a moment for upload to complete (background process handles this)
+        // Wait for upload to complete (background process handles this)
         logger.debug('Waiting for background upload to complete...');
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        console.log('⏳ Uploading recording...');
         
-        // Try to read the upload result from the background process
-        const uploadResult = processManager.readUploadResult();
+        // Wait up to 2 minutes for upload result to appear
+        const maxWaitForUpload = 120000; // 2 minutes
+        const startWaitForUpload = Date.now();
+        let uploadResult = null;
+        
+        while (!uploadResult && (Date.now() - startWaitForUpload) < maxWaitForUpload) {
+          uploadResult = processManager.readUploadResult();
+          if (!uploadResult) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Check every second
+          }
+        }
+        
         logger.debug('Upload result read attempt', { found: !!uploadResult, shareLink: uploadResult?.shareLink });
         
         if (uploadResult && uploadResult.shareLink) {
