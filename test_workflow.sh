@@ -30,16 +30,16 @@ if [ ! -f "$TEMP_FILE" ]; then
 fi
 echo "✅ File tracking configured"
 
-# 4. Start dashcam recording in background
+# 4. Start dashcam recording in background with timeout to auto-stop
 echo ""
-echo "4. Starting dashcam recording in background..."
-# Start recording and redirect output to a log file so we can still monitor it
+echo "4. Starting dashcam recording..."
+# Start recording in background and set up auto-stop after test duration
 ./bin/dashcam.js record --title "Sync Test Recording" --description "Testing video/log synchronization with timestamped events" > /tmp/dashcam-recording.log 2>&1 &
 RECORD_PID=$!
 
 # Wait for recording to initialize and log tracker to start
 echo "Waiting for recording to initialize (PID: $RECORD_PID)..."
-sleep 1
+sleep 2
 
 # Write first event after log tracker is fully ready
 RECORDING_START=$(date +%s)
@@ -53,6 +53,7 @@ if ps -p $RECORD_PID > /dev/null; then
   echo "✅ Recording started successfully"
 else
   echo "❌ Recording process died, check /tmp/dashcam-recording.log"
+  cat /tmp/dashcam-recording.log
   exit 1
 fi
 
@@ -109,15 +110,28 @@ echo ""
 echo "Waiting 2 seconds to ensure all events are captured..."
 sleep 2
 
-# 6. Stop recording and upload (this will kill the background recording process)
+# 6. Stop recording by sending SIGINT (Ctrl+C) to the recording process
 echo ""
-echo "6. Stopping recording and uploading..."
+echo "6. Stopping recording (sending SIGINT)..."
 # Check if recording is still active
-if ./bin/dashcam.js status | grep -q "Recording in progress"; then
-  ./bin/dashcam.js stop
-  echo "✅ Recording stopped and uploaded"
+if ps -p $RECORD_PID > /dev/null; then
+  kill -INT $RECORD_PID
+  echo "Sent SIGINT to recording process, waiting for upload to complete..."
+  
+  # Wait for the process to finish (it will stop recording and upload)
+  wait $RECORD_PID 2>/dev/null || true
+  
+  echo "✅ Recording stopped and upload completed"
+  
+  # Show the output from the recording process
+  echo ""
+  echo "Recording output:"
+  cat /tmp/dashcam-recording.log
 else
-  echo "⚠️  Recording already completed (this is expected with background mode)"
+  echo "⚠️  Recording process already completed"
+  echo ""
+  echo "Recording output:"
+  cat /tmp/dashcam-recording.log
 fi
 
 echo ""
@@ -126,11 +140,6 @@ echo "🧹 Cleaning up..."
 echo ""
 echo "🎉 Test workflow completed successfully!"
 echo "======================================"
-
-# Show final status
-echo ""
-echo "📊 Final Status:"
-./bin/dashcam.js status
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════╗"
