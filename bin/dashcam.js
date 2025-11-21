@@ -466,43 +466,58 @@ program
 
         console.log('Recording stopped successfully');
         
-        // Check if the result already has a shareLink (from signal handler upload)
-        if (result.shareLink) {
-          console.log('📹 Watch your recording:', result.shareLink);
+        // Wait for upload to complete (background process handles this)
+        logger.debug('Waiting for background upload to complete...');
+        console.log('⏳ Uploading recording...');
+        
+        // Wait up to 2 minutes for upload result to appear
+        const maxWaitForUpload = 120000; // 2 minutes
+        const startWaitForUpload = Date.now();
+        let uploadResult = null;
+        
+        while (!uploadResult && (Date.now() - startWaitForUpload) < maxWaitForUpload) {
+          uploadResult = processManager.readUploadResult();
+          if (!uploadResult) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Check every second
+          }
+        }
+        
+        logger.debug('Upload result read attempt', { found: !!uploadResult, shareLink: uploadResult?.shareLink });
+        
+        if (uploadResult && uploadResult.shareLink) {
+          console.log('📹 Watch your recording:', uploadResult.shareLink);
+          // Clean up the result file now that we've read it
           processManager.cleanup();
           process.exit(0);
         }
         
-        // Otherwise, check if upload result file was written
-        const uploadResultFromFile = processManager.readUploadResult();
-        logger.debug('Upload result read attempt', { found: !!uploadResultFromFile, shareLink: uploadResultFromFile?.shareLink });
+        // Check if files still exist - if not, background process already uploaded
+        const filesExist = fs.existsSync(result.outputPath) && 
+                          (!result.gifPath || fs.existsSync(result.gifPath)) && 
+                          (!result.snapshotPath || fs.existsSync(result.snapshotPath));
         
-        if (uploadResultFromFile && uploadResultFromFile.shareLink) {
-          console.log('📹 Watch your recording:', uploadResultFromFile.shareLink);
-          processManager.cleanup();
+        if (!filesExist) {
+          console.log('✅ Recording uploaded by background process');
+          logger.info('Files were cleaned up by background process');
           process.exit(0);
         }
         
-        // No upload result found - need to upload ourselves
-        // This commonly happens on Windows where signal handlers work differently
-        logger.info('No upload result found, uploading now...');
+        // Always attempt to upload - let upload function find project if needed
         console.log('Uploading recording...');
-        
         try {
           const uploadResult = await upload(result.outputPath, {
             title: activeStatus?.options?.title,
             description: activeStatus?.options?.description,
-            project: activeStatus?.options?.project,
+            project: activeStatus?.options?.project, // May be undefined, that's ok
             duration: result.duration,
             clientStartDate: result.clientStartDate,
             apps: result.apps,
-            logs: result.logs,
+            icons: result.icons,
             gifPath: result.gifPath,
             snapshotPath: result.snapshotPath
           });
           
           console.log('📹 Watch your recording:', uploadResult.shareLink);
-          processManager.cleanup();
         } catch (uploadError) {
           console.error('Upload failed:', uploadError.message);
           console.log('Recording saved locally:', result.outputPath);
