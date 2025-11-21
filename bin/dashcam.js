@@ -626,7 +626,7 @@ program
       
       if (options.recover) {
         // Try to recover from interrupted recording
-        const tempFileInfoPath = path.join(process.cwd(), '.dashcam', 'temp-file.json');
+        const tempFileInfoPath = path.join(APP.configDir, 'temp-file.json');
         
         if (fs.existsSync(tempFileInfoPath)) {
           console.log('Found interrupted recording, attempting recovery...');
