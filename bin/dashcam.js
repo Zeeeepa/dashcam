@@ -136,7 +136,56 @@ async function recordingAction(options, command) {
       log('Use "dashcam status" to check progress');
       log('Use "dashcam stop" to stop recording and upload');
       
-      process.exit(0);
+      // Keep the process alive so recording continues
+      // Set up graceful shutdown handlers
+      const handleShutdown = async (signal) => {
+        log(`\nReceived ${signal}, stopping recording...`);
+        try {
+          const result = await processManager.stopActiveRecording();
+          
+          if (result) {
+            log('Recording stopped successfully');
+            log('Uploading recording...');
+            
+            try {
+              const uploadResult = await upload(result.outputPath, {
+                title: options.title || 'Dashcam Recording',
+                description: description,
+                project: options.project || options.k,
+                duration: result.duration,
+                clientStartDate: result.clientStartDate,
+                apps: result.apps,
+                icons: result.icons,
+                gifPath: result.gifPath,
+                snapshotPath: result.snapshotPath
+              });
+              
+              // Write upload result for stop command to read
+              processManager.writeUploadResult({
+                shareLink: uploadResult.shareLink,
+                replayId: uploadResult.replay?.id
+              });
+              
+              log('📹 Watch your recording:', uploadResult.shareLink);
+            } catch (uploadError) {
+              logError('Upload failed:', uploadError.message);
+              log('Recording saved locally:', result.outputPath);
+            }
+          }
+          
+          process.exit(0);
+        } catch (error) {
+          logError('Failed to stop recording:', error.message);
+          process.exit(1);
+        }
+      };
+      
+      process.on('SIGINT', handleShutdown);
+      process.on('SIGTERM', handleShutdown);
+      
+      // Keep process alive indefinitely until stopped
+      await new Promise(() => {}); // Wait forever
+      
     } catch (error) {
       logError('Failed to start recording:', error.message);
       process.exit(1);

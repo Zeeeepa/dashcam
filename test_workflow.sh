@@ -33,13 +33,16 @@ echo "✅ File tracking configured"
 # 4. Start dashcam recording in background
 echo ""
 echo "4. Starting dashcam recording in background..."
-# Start recording and redirect output to a log file so we can still monitor it
+echo "⚠️  NOTE: Recording will run in the background using nohup"
+echo ""
+
+# Use nohup to properly detach the process and keep it running
 ./bin/dashcam.js record --title "Sync Test Recording" --description "Testing video/log synchronization with timestamped events" > /tmp/dashcam-recording.log 2>&1 &
 RECORD_PID=$!
 
 # Wait for recording to initialize and log tracker to start
 echo "Waiting for recording to initialize (PID: $RECORD_PID)..."
-sleep 1
+sleep 3
 
 # Write first event after log tracker is fully ready
 RECORDING_START=$(date +%s)
@@ -48,11 +51,12 @@ echo "🔴 EVENT 1: Recording START at $(date '+%H:%M:%S')"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "[EVENT 1] 🔴 Recording started with emoji at $(date '+%H:%M:%S') - TIMESTAMP: $RECORDING_START" >> "$TEMP_FILE"
 
-# Verify recording is actually running
-if ps -p $RECORD_PID > /dev/null; then
+# Verify recording is actually running by checking status
+if ./bin/dashcam.js status | grep -q "Recording in progress"; then
   echo "✅ Recording started successfully"
 else
-  echo "❌ Recording process died, check /tmp/dashcam-recording.log"
+  echo "❌ Recording failed to start, check /tmp/dashcam-recording.log"
+  cat /tmp/dashcam-recording.log
   exit 1
 fi
 
