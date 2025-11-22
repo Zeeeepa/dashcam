@@ -14,10 +14,10 @@ import { WebTrackerManager } from '../lib/extension-logs/manager.js';
 import { logger } from '../lib/logger.js';
 
 async function main() {
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║  Chrome Extension Script Execution Example                    ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝\n');
-  console.log('📋 Prerequisites:');
+  console.log('================================================================');
+  console.log('  Chrome Extension Script Execution Example');
+  console.log('================================================================\n');
+  console.log('Prerequisites:');
   console.log('  1. Chrome extension must be installed and loaded');
   console.log('  2. Have a regular webpage open (NOT chrome:// or chrome-extension://)');
   console.log('  3. For best results, navigate to a simple page like example.com\n');
@@ -26,21 +26,19 @@ async function main() {
   
   // Start the WebSocket server
   await server.start();
-  console.log('✓ WebSocket server started on port:', server.port);
-  
-  // Create the WebTrackerManager
+    console.log('WebSocket server started on port:', server.port);  // Create the WebTrackerManager
   const manager = new WebTrackerManager(server);
   
   // Wait for the Chrome extension to connect
   console.log('\nWaiting for Chrome extension to connect...');
   const connected = await new Promise((resolve) => {
     const timeout = setTimeout(() => {
-      console.log('⏱️  Timeout waiting for connection');
+      console.log('Timeout waiting for connection');
       resolve(false);
     }, 10000);
     
     const cleanup = server.on('connection', (client) => {
-      console.log('✓ Chrome extension connected!');
+      console.log('Chrome extension connected!');
       clearTimeout(timeout);
       cleanup();
       resolve(true);
@@ -48,7 +46,7 @@ async function main() {
   });
   
   if (!connected) {
-    console.error('\n❌ Chrome extension did not connect.');
+    console.error('\nChrome extension did not connect.');
     console.error('   Make sure the extension is installed and running.');
     console.error('   Check chrome://extensions to verify it\'s loaded.');
     process.exit(1);
@@ -62,9 +60,9 @@ async function main() {
     const result = await manager.executeScript({
       code: 'return document.title;'
     });
-    console.log('✓ Page title:', result);
+      console.log('Page title:', result);
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('Error:', error.message);
   }
   
   console.log('\n--- Example 2: Get current URL ---');
@@ -96,7 +94,7 @@ async function main() {
       code: `
         const div = document.createElement('div');
         div.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4CAF50; color: white; padding: 20px; border-radius: 8px; font-family: Arial; z-index: 10000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
-        div.textContent = 'Hello from CLI! 👋';
+        div.textContent = 'Hello from CLI!';
         document.body.appendChild(div);
         
         // Remove after 5 seconds

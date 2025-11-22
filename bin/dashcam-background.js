@@ -5,7 +5,6 @@
  */
 
 import { startRecording, stopRecording } from '../lib/recorder.js';
-import { upload } from '../lib/uploader.js';
 import { logger, setVerbose } from '../lib/logger.js';
 import fs from 'fs';
 import path from 'path';
@@ -14,7 +13,7 @@ import os from 'os';
 // Use user home directory for cross-session communication
 const PROCESS_DIR = path.join(os.homedir(), '.dashcam-cli');
 const STATUS_FILE = path.join(PROCESS_DIR, 'status.json');
-const RESULT_FILE = path.join(PROCESS_DIR, 'upload-result.json');
+const RESULT_FILE = path.join(PROCESS_DIR, 'recording-result.json');
 
 console.log('[Background INIT] Process directory:', PROCESS_DIR);
 console.log('[Background INIT] Status file:', STATUS_FILE);
@@ -92,16 +91,24 @@ function writeStatus(status) {
   }
 }
 
-// Write upload result file
-function writeUploadResult(result) {
+// Write recording result file
+function writeRecordingResult(result) {
   try {
+    console.log('[Background] Writing upload result to file:', RESULT_FILE);
+    console.log('[Background] Upload result data:', result);
     logger.info('Writing upload result to file', { path: RESULT_FILE, shareLink: result.shareLink });
-    fs.writeFileSync(RESULT_FILE, JSON.stringify({
+    
+    const resultData = {
       ...result,
       timestamp: Date.now()
-    }, null, 2));
+    };
+    
+    fs.writeFileSync(RESULT_FILE, JSON.stringify(resultData, null, 2));
+    console.log('[Background] Successfully wrote upload result to file');
+    console.log('[Background] File exists after write:', fs.existsSync(RESULT_FILE));
     logger.info('Successfully wrote upload result to file');
   } catch (error) {
+    console.error('[Background] Failed to write upload result file:', error.message);
     logger.error('Failed to write upload result file', { error });
   }
 }
@@ -146,7 +153,7 @@ async function runBackgroundRecording() {
       pid: process.pid
     });
 
-    // Set up signal handlers for graceful shutdown
+    // Set up signal handlers for graceful shutdown BEFORE entering wait loop
     const handleShutdown = async (signal) => {
       if (isShuttingDown) {
         logger.info('Shutdown already in progress...');
@@ -155,6 +162,7 @@ async function runBackgroundRecording() {
       isShuttingDown = true;
       
       logger.info(`Received ${signal}, stopping background recording...`);
+      console.log('[Background] Received stop signal, stopping recording...');
       
       try {
         // Stop the recording
@@ -165,28 +173,27 @@ async function runBackgroundRecording() {
             outputPath: stopResult.outputPath,
             duration: stopResult.duration 
           });
+          console.log('[Background] Recording stopped successfully:', {
+            outputPath: stopResult.outputPath,
+            duration: stopResult.duration
+          });
           
-          // Upload the recording
-          logger.info('Starting upload...');
-          const uploadResult = await upload(stopResult.outputPath, {
-            title: options.title || 'Dashcam Recording',
-            description: options.description || 'Recorded with Dashcam CLI',
-            project: options.project || options.k,
+          // Write recording result for stop command to upload
+          console.log('[Background] Writing recording result for stop command...');
+          writeRecordingResult({
+            outputPath: stopResult.outputPath,
             duration: stopResult.duration,
             clientStartDate: stopResult.clientStartDate,
             apps: stopResult.apps,
             logs: stopResult.logs,
             gifPath: stopResult.gifPath,
-            snapshotPath: stopResult.snapshotPath
+            snapshotPath: stopResult.snapshotPath,
+            // Include options so stop command can use them for upload
+            title: options.title,
+            description: options.description,
+            project: options.project || options.k
           });
-          
-          logger.info('Upload complete', { shareLink: uploadResult.shareLink });
-          
-          // Write upload result for stop command to read
-          writeUploadResult({
-            shareLink: uploadResult.shareLink,
-            replayId: uploadResult.replay?.id
-          });
+          console.log('[Background] Recording result written successfully');
         }
         
         // Update status to indicate recording stopped
@@ -196,23 +203,27 @@ async function runBackgroundRecording() {
           pid: process.pid
         });
         
+        console.log('[Background] Background process exiting successfully');
         logger.info('Background process exiting successfully');
         process.exit(0);
       } catch (error) {
+        console.error('[Background] Error during shutdown:', error.message);
         logger.error('Error during shutdown:', error);
         process.exit(1);
       }
     };
     
+    // Register signal handlers
     process.on('SIGINT', () => handleShutdown('SIGINT'));
     process.on('SIGTERM', () => handleShutdown('SIGTERM'));
     
-    // Keep the process alive
+    // Keep the process alive - wait indefinitely for SIGKILL from stop command
     logger.info('Background recording is now running. Waiting for stop signal...');
-    await new Promise(() => {}); // Wait indefinitely for signals
+    console.log('[Background] Waiting for stop signal...');
     
   } catch (error) {
-    logger.error('Background recording failed:', error);
+    logger.error('Background recording setup failed:', error);
+    console.error('[Background] Recording setup failed:', error.message);
     
     // Update status to indicate failure
     writeStatus({
@@ -223,6 +234,9 @@ async function runBackgroundRecording() {
     
     process.exit(1);
   }
+  
+  // Infinite loop - process will only exit via signal handlers or stop file
+  await new Promise(() => {});
 }
 
 // Run the background recording

@@ -30,17 +30,17 @@ import os from 'os';
 async function analyzeVideo(videoPath) {
   const ffprobePath = await getFfprobePath();
   
-  console.log(`\n📊 Analyzing video: ${videoPath}`);
-  console.log('─'.repeat(80));
+  console.log(`\nAnalyzing video: ${videoPath}`);
+  console.log('='.repeat(80));
   
   // Check if file exists
   if (!fs.existsSync(videoPath)) {
-    console.error(`❌ Video file does not exist: ${videoPath}`);
+    console.error(`Video file does not exist: ${videoPath}`);
     return null;
   }
   
   const stats = fs.statSync(videoPath);
-  console.log(`📁 File size: ${(stats.size / 1024).toFixed(2)} KB`);
+  console.log(`File size: ${(stats.size / 1024).toFixed(2)} KB`);
   
   try {
     // Get basic format info
@@ -52,8 +52,8 @@ async function analyzeVideo(videoPath) {
     ]);
     
     const formatData = JSON.parse(formatResult.stdout);
-    console.log(`⏱️  Duration: ${formatData.format.duration || 'unknown'}s`);
-    console.log(`📊 Bit rate: ${formatData.format.bit_rate || 'unknown'} bits/s`);
+    console.log(`Duration: ${formatData.format.duration || 'unknown'}s`);
+    console.log(`Bit rate: ${formatData.format.bit_rate || 'unknown'} bits/s`);
     
     // Get stream info
     const streamResult = await execa(ffprobePath, [
@@ -67,9 +67,9 @@ async function analyzeVideo(videoPath) {
     const videoStream = streamData.streams.find(s => s.codec_name);
     
     if (videoStream) {
-      console.log(`🎥 Codec: ${videoStream.codec_name}`);
-      console.log(`📐 Resolution: ${videoStream.width}x${videoStream.height}`);
-      console.log(`🎞️  Frame rate: ${videoStream.r_frame_rate}`);
+      console.log(`Codec: ${videoStream.codec_name}`);
+      console.log(`Resolution: ${videoStream.width}x${videoStream.height}`);
+      console.log(`Frame rate: ${videoStream.r_frame_rate}`);
     }
     
     // Count actual frames
@@ -83,10 +83,10 @@ async function analyzeVideo(videoPath) {
     ], { reject: false });
     
     const frameCount = parseInt(frameResult.stdout.trim());
-    console.log(`🖼️  Frame count: ${frameCount || 'unknown'}`);
+    console.log(`Frame count: ${frameCount || 'unknown'}`);
     
     if (frameResult.stderr) {
-      console.log(`⚠️  FFprobe warnings: ${frameResult.stderr.trim()}`);
+      console.log(`FFprobe warnings: ${frameResult.stderr.trim()}`);
     }
     
     // Check if duration is available in container
@@ -97,10 +97,10 @@ async function analyzeVideo(videoPath) {
     const hasEncodingIssues = frameResult.stderr.includes('File ended prematurely');
     const hasMissingMetadata = !hasDuration;
     
-    console.log('\n📋 Analysis Result:');
-    console.log(`   Single frame: ${isSingleFrame ? '❌ YES (BUG!)' : '✅ NO'}`);
-    console.log(`   Encoding issues: ${hasEncodingIssues ? '⚠️  YES' : '✅ NO'}`);
-    console.log(`   Missing metadata: ${hasMissingMetadata ? '⚠️  YES (container incomplete)' : '✅ NO'}`);
+    console.log('\nAnalysis Result:');
+    console.log(`   Single frame: ${isSingleFrame ? 'YES (BUG!)' : 'NO'}`);
+    console.log(`   Encoding issues: ${hasEncodingIssues ? 'YES' : 'NO'}`);
+    console.log(`   Missing metadata: ${hasMissingMetadata ? 'YES (container incomplete)' : 'NO'}`);
     console.log(`   Platform: ${os.platform()}`);
     
     return {
@@ -117,34 +117,34 @@ async function analyzeVideo(videoPath) {
     };
     
   } catch (error) {
-    console.error(`❌ Error analyzing video: ${error.message}`);
+    console.error(`Error analyzing video: ${error.message}`);
     return null;
   }
 }
 
 async function testShortRecording(duration = 3000) {
-  console.log(`\n🎬 Testing ${duration}ms recording...`);
-  console.log('═'.repeat(80));
+  console.log(`\nTesting ${duration}ms recording...`);
+  console.log('='.repeat(80));
   
   try {
     // Start recording
-    console.log('▶️  Starting recording...');
+    console.log('Starting recording...');
     const { outputPath, startTime } = await startRecording({ 
       fps: 30,
       includeAudio: false 
     });
     
-    console.log(`✅ Recording started at: ${outputPath}`);
+    console.log(`Recording started at: ${outputPath}`);
     
     // Wait for specified duration
-    console.log(`⏳ Recording for ${duration}ms...`);
+    console.log(`Recording for ${duration}ms...`);
     await new Promise(resolve => setTimeout(resolve, duration));
     
     // Stop recording
-    console.log('⏹️  Stopping recording...');
+    console.log('Stopping recording...');
     const result = await stopRecording();
     
-    console.log(`✅ Recording stopped`);
+    console.log(`Recording stopped`);
     console.log(`   Duration: ${result.duration}ms`);
     console.log(`   File: ${result.outputPath}`);
     
@@ -154,15 +154,15 @@ async function testShortRecording(duration = 3000) {
     return result;
     
   } catch (error) {
-    console.error(`❌ Test failed: ${error.message}`);
+    console.error(`Test failed: ${error.message}`);
     console.error(error.stack);
     throw error;
   }
 }
 
 async function testExistingVideo(videoPath) {
-  console.log('\n🔍 Testing existing video...');
-  console.log('═'.repeat(80));
+  console.log('\nTesting existing video...');
+  console.log('='.repeat(80));
   
   return await analyzeVideo(videoPath);
 }
@@ -171,8 +171,8 @@ async function testExistingVideo(videoPath) {
 async function main() {
   const args = process.argv.slice(2);
   
-  console.log('\n🧪 Short Recording Test Suite');
-  console.log('═'.repeat(80));
+  console.log('\nShort Recording Test Suite');
+  console.log('='.repeat(80));
   console.log(`Platform: ${os.platform()}`);
   console.log(`Architecture: ${os.arch()}`);
   console.log(`Node version: ${process.version}`);
@@ -183,13 +183,13 @@ async function main() {
     const result = await testExistingVideo(videoPath);
     
     if (result?.isSingleFrame) {
-      console.log('\n❌ SINGLE-FRAME VIDEO DETECTED!');
+      console.log('\nSINGLE-FRAME VIDEO DETECTED!');
       process.exit(1);
     } else if (result?.hasMissingMetadata) {
-      console.log('\n⚠️  WARNING: Video container metadata is incomplete!');
+      console.log('\nWARNING: Video container metadata is incomplete!');
       console.log('   This can cause playback issues in some players.');
       console.log('   The video has frames but duration is not in the container.');
-      console.log('\n💡 Try fixing it with:');
+      console.log('\nTry fixing it with:');
       console.log(`   node test-short-recording.js fix ${args[1]} ${args[1].replace(/\.(webm|mp4)$/, '-fixed.$1')}`);
       process.exit(1);
     }
@@ -198,38 +198,38 @@ async function main() {
     const inputPath = path.resolve(args[1]);
     const outputPath = path.resolve(args[2]);
     
-    console.log('\n🔧 Fixing video container...');
-    console.log('═'.repeat(80));
+    console.log('\nFixing video container...');
+    console.log('='.repeat(80));
     console.log(`Input:  ${inputPath}`);
     console.log(`Output: ${outputPath}`);
     
     if (!fs.existsSync(inputPath)) {
-      console.error(`❌ Input file does not exist: ${inputPath}`);
+      console.error(`Input file does not exist: ${inputPath}`);
       process.exit(1);
     }
     
     // Analyze before
-    console.log('\n📊 BEFORE:');
+    console.log('\nBEFORE:');
     const beforeResult = await analyzeVideo(inputPath);
     
     // Fix the video
     const fixSuccess = await fixVideoContainer(inputPath, outputPath);
     
     if (!fixSuccess) {
-      console.error('\n❌ Failed to fix video!');
+      console.error('\nFailed to fix video!');
       process.exit(1);
     }
     
     // Analyze after
-    console.log('\n📊 AFTER:');
+    console.log('\nAFTER:');
     const afterResult = await analyzeVideo(outputPath);
     
-    console.log('\n✅ Video fixed successfully!');
-    console.log(`   Before: ${beforeResult?.hasMissingMetadata ? 'Missing metadata ⚠️' : 'Has metadata ✅'}`);
-    console.log(`   After:  ${afterResult?.hasMissingMetadata ? 'Missing metadata ⚠️' : 'Has metadata ✅'}`);
+    console.log('\nVideo fixed successfully!');
+    console.log(`   Before: ${beforeResult?.hasMissingMetadata ? 'Missing metadata' : 'Has metadata'}`);
+    console.log(`   After:  ${afterResult?.hasMissingMetadata ? 'Missing metadata' : 'Has metadata'}`);
     
     if (afterResult?.hasMissingMetadata) {
-      console.log('\n⚠️  Warning: Metadata still missing after fix. The source file may be corrupted.');
+      console.log('\nWarning: Metadata still missing after fix. The source file may be corrupted.');
       process.exit(1);
     }
   } else {
@@ -252,7 +252,7 @@ async function main() {
             fs.unlinkSync(result.snapshotPath);
           }
         } catch (cleanupError) {
-          console.warn(`⚠️  Cleanup warning: ${cleanupError.message}`);
+          console.warn(`Cleanup warning: ${cleanupError.message}`);
         }
       } catch (error) {
         results.push({ duration, success: false, error: error.message });
@@ -263,20 +263,20 @@ async function main() {
     }
     
     // Summary
-    console.log('\n\n📊 TEST SUMMARY');
-    console.log('═'.repeat(80));
+    console.log('\n\nTEST SUMMARY');
+    console.log('='.repeat(80));
     
     for (const result of results) {
-      const status = result.success ? '✅' : '❌';
+      const status = result.success ? 'PASS' : 'FAIL';
       console.log(`${status} ${result.duration}ms recording: ${result.success ? 'PASSED' : result.error}`);
     }
     
     const allPassed = results.every(r => r.success);
     if (!allPassed) {
-      console.log('\n❌ Some tests failed!');
+      console.log('\nSome tests failed!');
       process.exit(1);
     } else {
-      console.log('\n✅ All tests passed!');
+      console.log('\nAll tests passed!');
     }
   }
 }

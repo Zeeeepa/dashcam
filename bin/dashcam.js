@@ -469,94 +469,79 @@ program
         console.log('Recording stopped successfully');
         logger.debug('Stop result:', result);
         
-        // Wait for upload to complete (background process handles this)
-        logger.debug('Waiting for background upload to complete...');
-        console.log('Checking if background process uploaded...');
+        // Reconstruct recording data from status and fix video with FFmpeg
+        console.log('Processing recording...');
+        logger.debug('Reconstructing recording data from status file');
         
-        // Wait up to 2 minutes for upload result to appear
-        const maxWaitForUpload = 120000; // 2 minutes
-        const startWaitForUpload = Date.now();
-        let uploadResult = null;
-        let checkCount = 0;
+        const { fixVideoContainer } = await import('../lib/recorder.js');
         
-        while (!uploadResult && (Date.now() - startWaitForUpload) < maxWaitForUpload) {
-          uploadResult = processManager.readUploadResult();
-          checkCount++;
-          
-          if (!uploadResult) {
-            // Log every 10 seconds to show progress
-            if (checkCount % 10 === 0) {
-              const elapsed = Math.round((Date.now() - startWaitForUpload) / 1000);
-              logger.debug(`Still waiting for background upload... (${elapsed}s elapsed)`);
-              console.log(`Waiting for background upload... (${elapsed}s)`);
-            }
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Check every second
+        // Get temp file path
+        const tempFileInfoPath = path.join(os.tmpdir(), 'dashcam', 'temp-file.json');
+        let tempFileInfo = null;
+        try {
+          tempFileInfo = JSON.parse(fs.readFileSync(tempFileInfoPath, 'utf8'));
+        } catch (error) {
+          logger.error('Failed to read temp file info', { error });
+        }
+        
+        const tempFile = tempFileInfo?.tempFile || result.outputPath.replace('.webm', '-temp.webm');
+        const outputPath = result.outputPath;
+        
+        // Fix the video with FFmpeg (handle incomplete recordings)
+        logger.info('Fixing video with FFmpeg', { tempFile, outputPath });
+        if (fs.existsSync(tempFile)) {
+          try {
+            await fixVideoContainer(tempFile, outputPath);
+            logger.info('Video fixed successfully');
+          } catch (error) {
+            logger.warn('FFmpeg fix failed, using temp file as-is', { error: error.message });
+            // If fix fails, just copy the temp file
+            fs.copyFileSync(tempFile, outputPath);
           }
+        } else {
+          logger.warn('Temp file not found, using output path directly', { tempFile });
         }
         
-        logger.debug('Upload result read attempt', { 
-          found: !!uploadResult, 
-          shareLink: uploadResult?.shareLink,
-          checksPerformed: checkCount,
-          timeElapsed: Math.round((Date.now() - startWaitForUpload) / 1000) + 's'
-        });
-        
-        if (uploadResult && uploadResult.shareLink) {
-          console.log('Watch your recording:', uploadResult.shareLink);
-          logger.info('Background process upload succeeded');
-          // Clean up the result file now that we've read it
-          processManager.cleanup();
-          process.exit(0);
-        }
-        
-        logger.debug('No upload result from background process, checking files...');
-        
-        // Check if files still exist - if not, background process already uploaded
-        const videoExists = fs.existsSync(result.outputPath);
-        const gifExists = !result.gifPath || fs.existsSync(result.gifPath);
-        const snapshotExists = !result.snapshotPath || fs.existsSync(result.snapshotPath);
-        
-        logger.debug('File existence check:', {
-          video: videoExists,
-          gif: gifExists,
-          snapshot: snapshotExists,
-          outputPath: result.outputPath,
-          gifPath: result.gifPath,
-          snapshotPath: result.snapshotPath
-        });
-        
-        const filesExist = videoExists && gifExists && snapshotExists;
-        
-        if (!filesExist) {
-          console.log('Recording appears to be uploaded by background process (files deleted)');
-          logger.info('Files were cleaned up by background process, assuming upload succeeded');
-          process.exit(0);
-        }
-        
-        // Always attempt to upload - let upload function find project if needed
-        console.log('No upload result found, uploading from foreground process...');
-        logger.debug('Starting foreground upload with metadata:', {
-          title: activeStatus?.options?.title,
-          project: activeStatus?.options?.project,
+        // We killed the process, so we don't have apps/logs data
+        // The recording is still on disk and can be uploaded without metadata
+        const recordingResult = {
+          outputPath,
           duration: result.duration,
-          outputPath: result.outputPath
-        });
+          clientStartDate: activeStatus.startTime,
+          apps: [],
+          logs: [],
+          title: activeStatus?.options?.title,
+          description: activeStatus?.options?.description,
+          project: activeStatus?.options?.project
+        };
+        
+        if (!recordingResult || !recordingResult.outputPath) {
+          console.error('Failed to process recording');
+          logger.error('No recording result', { recordingResult });
+          process.exit(1);
+        }
+        
+        console.log('Uploading recording...');
+        logger.debug('Recording result:', recordingResult);
         
         try {
-          const uploadResult = await upload(result.outputPath, {
-            title: activeStatus?.options?.title,
-            description: activeStatus?.options?.description,
-            project: activeStatus?.options?.project, // May be undefined, that's ok
-            duration: result.duration,
-            clientStartDate: result.clientStartDate,
-            apps: result.apps,
-            icons: result.icons,
-            gifPath: result.gifPath,
-            snapshotPath: result.snapshotPath
+          const uploadResult = await upload(recordingResult.outputPath, {
+            title: recordingResult.title || activeStatus?.options?.title || 'Dashcam Recording',
+            description: recordingResult.description || activeStatus?.options?.description,
+            project: recordingResult.project || activeStatus?.options?.project,
+            duration: recordingResult.duration,
+            clientStartDate: recordingResult.clientStartDate,
+            apps: recordingResult.apps,
+            logs: recordingResult.logs,
+            gifPath: recordingResult.gifPath,
+            snapshotPath: recordingResult.snapshotPath
           });
           
           console.log('Watch your recording:', uploadResult.shareLink);
-          logger.info('Foreground upload succeeded');
+          logger.info('Upload succeeded');
+          
+          // Clean up the result file
+          processManager.cleanup();
         } catch (uploadError) {
           console.error('Upload failed:', uploadError.message);
           logger.error('Upload error details:', {
@@ -565,7 +550,7 @@ program
             code: uploadError.code,
             statusCode: uploadError.response?.statusCode
           });
-          console.log('Recording saved locally:', result.outputPath);
+          console.log('Recording saved locally:', recordingResult.outputPath);
         }
       } catch (error) {
         console.error('Failed to stop recording:', error.message);
