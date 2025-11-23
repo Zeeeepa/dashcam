@@ -25,6 +25,57 @@ if (!fs.existsSync(APP.recordingsDir)) {
   fs.mkdirSync(APP.recordingsDir, { recursive: true });
 }
 
+// Handle graceful shutdown on terminal close or process termination
+// This prevents orphaned FFmpeg processes and ensures clean exit
+let isShuttingDown = false;
+
+async function gracefulShutdown(signal) {
+  if (isShuttingDown) {
+    logger.debug('Shutdown already in progress, ignoring additional signal', { signal });
+    return;
+  }
+  
+  isShuttingDown = true;
+  logger.info('Received shutdown signal, cleaning up...', { signal });
+  
+  try {
+    // Check if there's an active recording and stop it
+    if (processManager.isRecordingActive()) {
+      logger.info('Stopping active recording before exit...');
+      await processManager.stopActiveRecording().catch(err => {
+        logger.warn('Failed to stop recording during shutdown', { error: err.message });
+      });
+    }
+    
+    logger.info('Cleanup complete, exiting gracefully');
+    process.exit(0);
+  } catch (error) {
+    logger.error('Error during graceful shutdown', { error: error.message });
+    process.exit(1);
+  }
+}
+
+// Register signal handlers for graceful shutdown
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));
+
+// Handle uncaught errors to prevent crashes
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught exception', { 
+    error: error.message, 
+    stack: error.stack 
+  });
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled promise rejection', { 
+    reason: reason instanceof Error ? reason.message : reason,
+    stack: reason instanceof Error ? reason.stack : undefined
+  });
+});
+
 program
   .name('dashcam')
   .description('Capture the steps to reproduce every bug.')
@@ -469,6 +520,24 @@ program
         console.log('Recording stopped successfully');
         logger.debug('Stop result:', result);
         
+        // Try to read the recording result saved by the background process
+        // This includes performance data and other tracking information
+        const RECORDING_RESULT_FILE = path.join(os.homedir(), '.dashcam-cli', 'recording-result.json');
+        let backgroundResult = null;
+        if (fs.existsSync(RECORDING_RESULT_FILE)) {
+          try {
+            const resultData = fs.readFileSync(RECORDING_RESULT_FILE, 'utf8');
+            backgroundResult = JSON.parse(resultData);
+            logger.info('Loaded recording result from background process', {
+              outputPath: backgroundResult.outputPath,
+              duration: backgroundResult.duration,
+              performanceSamples: backgroundResult.performance?.summary?.sampleCount || 0
+            });
+          } catch (error) {
+            logger.warn('Failed to read background recording result', { error: error.message });
+          }
+        }
+        
         // Reconstruct recording data from status and fix video with FFmpeg
         console.log('Processing recording...');
         logger.debug('Reconstructing recording data from status file');
@@ -660,6 +729,26 @@ program
           logger.warn('Failed to collect log tracking results', { error: error.message });
         }
         
+        // Read performance data from file if available
+        let performanceData = null;
+        try {
+          const performanceFile = path.join(recordingDir, 'performance.jsonl');
+          if (fs.existsSync(performanceFile)) {
+            const { performanceTracker } = await import('../lib/performanceTracker.js');
+            // Set the file path and call stop to read and process the data
+            performanceTracker.performanceFile = performanceFile;
+            performanceData = performanceTracker.stop();
+            logger.info('Loaded performance data from file', {
+              sampleCount: performanceData?.summary?.sampleCount || 0,
+              file: performanceFile
+            });
+          } else {
+            logger.debug('No performance file found', { expectedPath: performanceFile });
+          }
+        } catch (error) {
+          logger.warn('Failed to load performance data', { error: error.message });
+        }
+        
         // The recording is on disk and can be uploaded with full metadata
         const recordingResult = {
           outputPath,
@@ -668,13 +757,21 @@ program
           duration: result.duration,
           fileSize: fs.statSync(outputPath).size,
           clientStartDate: activeStatus.startTime,
-          apps: appTrackingResults.apps,
-          icons: appTrackingResults.icons,
-          logs: logTrackingResults,
+          apps: backgroundResult?.apps || appTrackingResults.apps,
+          icons: backgroundResult?.icons || appTrackingResults.icons,
+          logs: backgroundResult?.logs || logTrackingResults,
+          performance: performanceData || backgroundResult?.performance || null, // Prefer file data, fallback to background result
           title: activeStatus?.options?.title,
           description: activeStatus?.options?.description,
           project: activeStatus?.options?.project
         };
+        
+        logger.info('Recording result prepared for upload', {
+          hasPerformanceData: !!recordingResult.performance,
+          performanceSamples: recordingResult.performance?.summary?.sampleCount || 0,
+          avgCPU: recordingResult.performance?.summary?.avgProcessCPU?.toFixed(1) || 'N/A',
+          maxCPU: recordingResult.performance?.summary?.maxProcessCPU?.toFixed(1) || 'N/A'
+        });
         
         if (!recordingResult || !recordingResult.outputPath) {
           console.error('Failed to process recording');
@@ -695,6 +792,7 @@ program
             apps: recordingResult.apps,
             icons: recordingResult.icons,
             logs: recordingResult.logs,
+            performance: recordingResult.performance, // Include performance data
             gifPath: recordingResult.gifPath,
             snapshotPath: recordingResult.snapshotPath
           });
@@ -702,8 +800,19 @@ program
           console.log('Watch your recording:', uploadResult.shareLink);
           logger.info('Upload succeeded');
           
-          // Clean up the result file
+          // Clean up the result file and recording result file
           processManager.cleanup();
+          
+          // Also clean up recording result file from background process
+          const RECORDING_RESULT_FILE = path.join(os.homedir(), '.dashcam-cli', 'recording-result.json');
+          if (fs.existsSync(RECORDING_RESULT_FILE)) {
+            try {
+              fs.unlinkSync(RECORDING_RESULT_FILE);
+              logger.debug('Cleaned up recording result file');
+            } catch (error) {
+              logger.warn('Failed to clean up recording result file', { error: error.message });
+            }
+          }
         } catch (uploadError) {
           console.error('Upload failed:', uploadError.message);
           logger.error('Upload error details:', {

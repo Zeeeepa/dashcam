@@ -161,37 +161,64 @@ async function runBackgroundRecording() {
       }
       isShuttingDown = true;
       
-      logger.info(`Received ${signal}, cleaning up child processes`);
-      console.log('[Background] Received stop signal, cleaning up...');
+      logger.info(`Received ${signal}, stopping recording and collecting data`);
+      console.log('[Background] Received stop signal, stopping recording...');
       
-      // Kill any child processes (ffmpeg, etc.)
       try {
-        // Get all child processes and kill them
-        const { exec } = await import('child_process');
-        const platform = process.platform;
+        // Stop the recording properly to collect all tracking data
+        const { stopRecording } = await import('../lib/recorder.js');
+        const result = await stopRecording();
         
-        if (platform === 'darwin' || platform === 'linux') {
-          // On Unix, kill the entire process group
-          exec(`pkill -P ${process.pid}`, (error) => {
-            if (error && error.code !== 1) { // code 1 means no processes found
-              logger.warn('Failed to kill child processes', { error: error.message });
-            }
-            logger.info('Child processes killed');
-          });
-        } else if (platform === 'win32') {
-          // On Windows, use taskkill
-          exec(`taskkill /F /T /PID ${process.pid}`, (error) => {
-            if (error) {
-              logger.warn('Failed to kill child processes on Windows', { error: error.message });
-            }
-            logger.info('Child processes killed');
-          });
-        }
+        logger.info('Recording stopped successfully', {
+          outputPath: result.outputPath,
+          duration: result.duration,
+          performanceSamples: result.performance?.summary?.sampleCount || 0
+        });
         
-        // Give it a moment to clean up
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Write the complete result to file for the stop command to read
+        const RECORDING_RESULT_FILE = path.join(PROCESS_DIR, 'recording-result.json');
+        fs.writeFileSync(RECORDING_RESULT_FILE, JSON.stringify({
+          ...result,
+          timestamp: Date.now()
+        }, null, 2));
+        
+        logger.info('Saved recording result to file', { 
+          path: RECORDING_RESULT_FILE,
+          performanceSamples: result.performance?.summary?.sampleCount || 0 
+        });
+        
+        // Update status to indicate recording is complete
+        writeStatus({
+          isRecording: false,
+          completedAt: Date.now(),
+          outputPath: result.outputPath,
+          duration: result.duration
+        });
+        
       } catch (error) {
-        logger.error('Error during cleanup', { error: error.message });
+        logger.error('Error stopping recording during shutdown', { error: error.message });
+        
+        // Still try to kill child processes
+        try {
+          const { exec } = await import('child_process');
+          const platform = process.platform;
+          
+          if (platform === 'darwin' || platform === 'linux') {
+            exec(`pkill -P ${process.pid}`, (error) => {
+              if (error && error.code !== 1) {
+                logger.warn('Failed to kill child processes', { error: error.message });
+              }
+            });
+          } else if (platform === 'win32') {
+            exec(`taskkill /F /T /PID ${process.pid}`, (error) => {
+              if (error) {
+                logger.warn('Failed to kill child processes on Windows', { error: error.message });
+              }
+            });
+          }
+        } catch (cleanupError) {
+          logger.error('Error during cleanup', { error: cleanupError.message });
+        }
       }
       
       logger.info('Background process exiting');
