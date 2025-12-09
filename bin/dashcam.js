@@ -363,7 +363,7 @@ program
   .action(async () => {
     // Call recordingAction with minimal options for instant replay
     await recordingAction({ 
-      fps: '30', 
+      fps: '10', 
       audio: false, 
       silent: false 
     }, null);

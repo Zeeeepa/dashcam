@@ -22,7 +22,7 @@ Capture video recordings of automated test runs with synchronized browser logs, 
 # Install in your CI environment
 npm install -g dashcam
 
-# Authenticate with your API key (get it from app.testdriver.ai/team)
+# Authenticate with your API key (get it from console.testdriver.ai/team)
 dashcam auth $TD_API_KEY
 
 # Wrap your test command
@@ -418,7 +418,7 @@ dashcam stop
 ### `dashcam auth <apiKey>`
 Authenticate with your TestDriver API key.
 
-> 💡 **Get your API key** from [app.testdriver.ai/team](https://app.testdriver.ai/team)
+> 💡 **Get your API key** from [console.testdriver.ai/team](https://console.testdriver.ai/team)
 
 ```bash
 dashcam auth 4e93d8bf-3886-4d26-a144-116c4063522d
