@@ -1,6 +1,6 @@
 {
   "name": "dashcam",
-  "version": "1.4.13-beta",
+  "version": "1.4.14-beta",
   "description": "Minimal CLI version of Dashcam desktop app",
   "main": "bin/dashcam.js",
   "bin": {
@@ -48,7 +48,7 @@
     "node-fetch": "^2.7.0",
     "open": "^9.1.0",
     "pidusage": "^3.0.2",
-    "systeminformation": "^5.18.15",
+    "systeminformation": "^5.27.13",
     "tail": "^2.2.6",
     "winston": "^3.11.0",
     "ws": "^8.18.3"
