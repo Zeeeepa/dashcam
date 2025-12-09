@@ -6,6 +6,7 @@ import { logger, setVerbose } from '../lib/logger.js';
 import { APP } from '../lib/config.js';
 import { createPattern } from '../lib/tracking.js';
 import { processManager } from '../lib/processManager.js';
+import { cleanupSystemInfo } from '../lib/systemInfo.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import path from 'path';
@@ -39,6 +40,9 @@ async function gracefulShutdown(signal) {
   logger.info('Received shutdown signal, cleaning up...', { signal });
   
   try {
+    // Clean up systeminformation child processes first to prevent stack overflow
+    cleanupSystemInfo();
+    
     // Check if there's an active recording and stop it
     if (processManager.isRecordingActive()) {
       logger.info('Stopping active recording before exit...');
