@@ -12,7 +12,6 @@ import { dirname } from 'path';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { sentryHeaders } from '../lib/sentryHeaders.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -1220,23 +1219,6 @@ program
       
     } catch (error) {
       console.error('Upload failed:', error.message);
-      process.exit(1);
-    }
-  });
-
-// Internal command for setting Sentry trace headers (not shown in help)
-program
-  .command('set-sentry-headers', { hidden: true })
-  .description('(Internal) Set Sentry trace headers for API requests')
-  .requiredOption('--sentry-trace <trace>', 'Sentry trace header value')
-  .requiredOption('--baggage <baggage>', 'Baggage header value')
-  .action((options) => {
-    try {
-      sentryHeaders.setHeaders(options.sentryTrace, options.baggage);
-      console.log('Sentry headers configured successfully');
-      process.exit(0);
-    } catch (error) {
-      console.error('Failed to set Sentry headers:', error.message);
       process.exit(1);
     }
   });
