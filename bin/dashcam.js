@@ -460,8 +460,6 @@ program
   .description('Stop the current recording and wait for upload completion')
   .action(async () => {
 
-    console.log('!!!! Updated Stop')
-
     try {
       // Enable verbose logging for stop command
       setVerbose(true);
